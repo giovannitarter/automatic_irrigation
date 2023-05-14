@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "ht7333")(type "KiCad")(uri "/home/pupillo/nextcloud/pupillo/pcb/library/ht7333.kicad_sym")(options "")(descr ""))
+  (lib (name "tp4056")(type "KiCad")(uri "/home/pupillo/nextcloud/pupillo/pcb/library/tp4056.kicad_sym")(options "")(descr ""))
+  (lib (name "fs8205")(type "KiCad")(uri "/home/pupillo/nextcloud/pupillo/pcb/library/fs8205.kicad_sym")(options "")(descr ""))
+  (lib (name "dw01")(type "KiCad")(uri "/home/pupillo/nextcloud/pupillo/pcb/library/dw01.kicad_sym")(options "")(descr ""))
+)
