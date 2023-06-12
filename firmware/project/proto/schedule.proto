@@ -1,0 +1,43 @@
+syntax = "proto2";
+
+//package garden_valve_controller;
+    
+    
+enum WeekDay {
+    
+    SUN = 0;
+    MON = 1;
+    TUE = 2;
+    WED = 3;
+    THR = 4;
+    FRI = 5;
+    SAT = 6;
+    
+    EVR = 7;
+};
+
+enum Operation {
+    OP_NONE = 0;
+    OP_SKIP = 1;
+    OP_OPEN = 2;
+    OP_CLOSE = 3;
+};
+
+
+message ScheduleEntry {
+    
+    optional bool enabled = 1;
+    optional WeekDay wday = 2;
+    optional Operation op = 3;
+    
+    optional int32 start_hou = 4;
+    optional int32 start_min = 5;
+};
+
+
+message Schedule {
+
+    required int32 version = 1;
+    repeated ScheduleEntry events = 2;
+};
+
