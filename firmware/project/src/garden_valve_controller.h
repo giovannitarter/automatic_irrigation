@@ -31,15 +31,16 @@
 #define SLEEP_MAX 60 * 60 * 2 //sec
 #define SLEEP_MIN 5  //sec
 
-#define MIN_DISPLAY 7 //sec
+#define MIN_DISPLAY 5000 //msec
 
 #define OP_NONE  0x00
 #define OP_SKIP  0x10
 #define OP_OPEN  0x11
 #define OP_CLOSE 0x12
     
-#define TOUCH_THRESHOLD 60
+#define TOUCH_THRESHOLD 80
 
+void print_wakeup_reason(esp_sleep_wakeup_cause_t wakeup_reason);
 
 uint8_t decode_action(uint8_t msg_action);
 size_t read_schedule(char * buffer, size_t buflen);

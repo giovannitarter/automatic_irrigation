@@ -7,6 +7,9 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <esp_wifi.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 
 #include "garden_valve_controller.h"
@@ -25,10 +28,10 @@
 
 
 //Globals
-int dir;
 const int VALVE_DELAY = BOOT_DELAY + CAP_CHARGE_TIME + SOLENOID_PULSE_TIME;
 int use_display;
-int config;
+uint32_t display_on_time;
+uint8_t config, k_wtr_start, k_wtr_stop;
 esp_sleep_wakeup_cause_t wakeup_reason;
 
 #define TZ "CET-1CEST,M3.5.0/2,M10.5.0/3"
@@ -53,7 +56,7 @@ bool need_sync;
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1, 10e5, 10e5);
 
 
 void display_init() {
@@ -62,7 +65,7 @@ void display_init() {
     digitalWrite(PIN_DISPLAY_EN, LOW);
     delay(1000);
 
-    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x32
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C, false, false)) { // Address 0x3D for 128x32
         Serial.println(F("SSD1306 allocation failed"));
         return;
     }
@@ -82,12 +85,8 @@ void display_init() {
 }
 
 
-void print_wakeup_reason(){
+void print_wakeup_reason(esp_sleep_wakeup_cause_t wakeup_reason){
   
-    esp_sleep_wakeup_cause_t wakeup_reason;
-
-    wakeup_reason = esp_sleep_get_wakeup_cause();
-
     switch(wakeup_reason){
       
       case ESP_SLEEP_WAKEUP_EXT0: 
@@ -185,6 +184,11 @@ void set_time_boot(int config) {
 
     time_t rtc_time, now;
     struct tm now_tm;
+    uint8_t time_valid;
+    uint32_t timeout;
+
+    time_valid = rtc.time_valid();
+    Serial.printf("time_valid: %d\n", time_valid);
 
     setenv("TZ", TZ, 3);
     tzset();
@@ -199,7 +203,10 @@ void set_time_boot(int config) {
     Serial.print("rtc_time: ");
     Serial.println((unsigned int)rtc_time);
 
-    need_sync = rtc_time < TIME_MIN || config;
+    need_sync = rtc_time < TIME_MIN 
+        || config 
+        || ! time_valid
+        || rtc_time == 1928419089;
 
     Serial.print("need_sync: ");
     Serial.println(need_sync);
@@ -214,10 +221,11 @@ void set_time_boot(int config) {
         wk.print_time_t("localtime:", now, 0);
         Serial.println();
 
+        esp_wifi_start();
         WiFi.mode(WIFI_STA);
         WiFi.begin(STASSID, STAPSK);
 
-        uint32_t timeout = millis() + 10000;
+        timeout = millis() + 10000;
         while (WiFi.status() != WL_CONNECTED) {
           delay(500);
           Serial.print(".");
@@ -231,9 +239,6 @@ void set_time_boot(int config) {
         Serial.println("WiFi connected");
         Serial.println("IP address: ");
         Serial.println(WiFi.localIP());
-
-        setenv("TZ", TZ, 3);
-        tzset();
 
         sntp_setoperatingmode(SNTP_OPMODE_POLL);
         sntp_setservername(0, "pool.ntp.org");
@@ -330,13 +335,12 @@ void callback(){
 
 void setup() {
     
-    dir = 0;
     use_display = 0;
     need_sync = 0;
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
-    gpio_deep_sleep_hold_dis();
-    
+    //WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+     
     pinMode(PIN_STEP_UP_EN, OUTPUT);
     pinMode(PIN_H_BRIDGE_EN_1, OUTPUT);
     pinMode(PIN_H_BRIDGE_EN_2, OUTPUT);
@@ -347,7 +351,6 @@ void setup() {
     pinMode(PIN_H_BRIDGE_BIN_2, OUTPUT);
 
     pinMode(PIN_LED_ACT, OUTPUT);
-    pinMode(PIN_TOUCH_1, INPUT);
     pinMode(PIN_DISPLAY_EN, OUTPUT);
     
     digitalWrite(PIN_STEP_UP_EN, LOW);
@@ -356,53 +359,74 @@ void setup() {
     digitalWrite(PIN_H_BRIDGE_EN_3, LOW);
     digitalWrite(PIN_DISPLAY_EN, HIGH);
     digitalWrite(PIN_STEP_UP_EN, LOW);
+    
+    gpio_hold_dis(GPIO_NUM_4);
+    gpio_hold_dis(GPIO_NUM_15);
+    gpio_hold_dis(GPIO_NUM_16);
+    gpio_hold_dis(GPIO_NUM_17);
+    gpio_hold_dis(GPIO_NUM_18);
+    gpio_hold_dis(GPIO_NUM_21);
+    gpio_hold_dis(GPIO_NUM_22);
+    gpio_deep_sleep_hold_dis();    
 
     rtc.init();
-    soldrv.init(PIN_STEP_UP_EN, PIN_H_BRIDGE_EN_1, PIN_H_BRIDGE_AIN_1, PIN_H_BRIDGE_AIN_2);
+    soldrv.init(PIN_STEP_UP_EN, PIN_H_BRIDGE_EN_1, PIN_H_BRIDGE_BIN_1, PIN_H_BRIDGE_BIN_2);
 
-    delay(BOOT_DELAY * 9e2);
-    
     digitalWrite(PIN_LED_ACT, HIGH);
-    delay(BOOT_DELAY * 1e2);
-    digitalWrite(PIN_LED_ACT, LOW);
     
     if (wakeup_reason == ESP_SLEEP_WAKEUP_TOUCHPAD) {
-        config = 1;
+        
         use_display = 1;
+        
+        if (touchRead(T4) < TOUCH_THRESHOLD) {
+            config = 1;
+        }
+        
+        if (touchRead(T5) < TOUCH_THRESHOLD) {
+            k_wtr_start = 1;
+        }
+        
+        if (touchRead(T6) < TOUCH_THRESHOLD) {
+            k_wtr_start = 1;
+        }
     }
     else if (wakeup_reason == ESP_SLEEP_WAKEUP_UNDEFINED) {
         use_display = 1; 
     }
     else {
         config = digitalRead(PIN_TOUCH_1);
+        use_display = 1;
     }
 
     Serial.begin(115200);
     Serial.println("\n\nBOOT");
-    print_wakeup_reason();
+    print_wakeup_reason(wakeup_reason);
 
-    Wire.begin();
 
     Serial.printf("config: %d\n\r", config);
     Serial.printf("use_display: %d\n\r", use_display);
     Serial.printf("STASSID: %s\n\r", STASSID);
     Serial.printf("STAPSK: %s\n\r", STAPSK);
-
+    
+    uint32_t res;
+    res = Wire.begin(-1, -1, 10e5);
+    Serial.printf("Wire res: %d\n", res);
+    
     set_time_boot(config);
     
     if (use_display) {
-        Serial.println("Display init\n");
+        //Serial.println("Display init\n");
         display_init();
-        Serial.println("Display init end\n");
+        //Serial.println("Display init end\n");
+    }
+    
+    time_t test = time(nullptr);
+    if (test < TIME_MIN) {
+        Serial.println("ERROR, cannot sync\n");
+        soldrv.close_valve();
     }
 
-    //time_t test = time(nullptr);
-    //if (test < TIME_MIN) {
-    //    Serial.println("ERROR, cannot sync\n");
-    //    soldrv.close_valve();
-    //}
-
-    Serial.println("end setup\n");
+    //Serial.println("end setup\n");
     
 }
 
@@ -410,12 +434,15 @@ void loop() {
 
     if (need_sync) {
         if (time_sync == 0) {
+            Serial.printf("Not synched yet, waiting %d\r", millis());
+            delay(1000);
             return;
         }
     }
-
-    soldrv.open_valve();
-    soldrv.close_valve();
+    
+    esp_wifi_stop();
+    
+    digitalWrite(PIN_LED_ACT, LOW);
 
     now = time(nullptr);
     Serial.print("UTC time from system:  ");
@@ -428,6 +455,7 @@ void loop() {
     wk.print_time_t("localtime from system: ", now, 0);
 
     uint32_t sleeptime;
+    sleeptime = 30;
     uint8_t op;
 
     Serial.println("");
@@ -438,22 +466,7 @@ void loop() {
     
     buflen = read_schedule((char *)buffer, buflen);
 
-    //while(1) {
-    //    
-    //    Serial.println("Time to open");
-    //    soldrv.open_valve();
-    //    delay(5000);
-    //    
-    //    Serial.println("Time to close");
-    //    soldrv.close_valve();
-    //    delay(5000);
- 
-    //}
-    //return;
-
-
-    wk.init(now, buffer, buflen, EVT_TOLERANCE);
-    
+    wk.init(now, buffer, buflen, EVT_TOLERANCE); 
     if (use_display) {
     
         display.setTextSize(1);
@@ -467,6 +480,7 @@ void loop() {
         // Display static text
         display.print(text);
         display.display(); 
+        display_on_time = millis();
     }
 
     while(sleeptime == 0) {
@@ -498,7 +512,7 @@ void loop() {
     }
     
     if (use_display) {
-        while(millis() < MIN_DISPLAY * 1e3) 
+        while(millis() < display_on_time + MIN_DISPLAY);
         delay(100);
     }
     
@@ -515,11 +529,11 @@ void loop() {
     gpio_hold_en(GPIO_NUM_18);
     gpio_deep_sleep_hold_en();
     
+ 
     time_t req_time = time(nullptr) - now;
     if (req_time < 0) {
         req_time = 0;
-    }
-    
+    }   
     Serial.printf("All action performed in %d sec\n\r", (uint32_t) req_time);
 
     if (sleeptime > SLEEP_MAX) {
@@ -539,8 +553,8 @@ void loop() {
     esp_sleep_enable_touchpad_wakeup();
     
     touchAttachInterrupt(T4, callback, TOUCH_THRESHOLD);
-
-
+    touchAttachInterrupt(T5, callback, TOUCH_THRESHOLD);
+    touchAttachInterrupt(T6, callback, TOUCH_THRESHOLD);
 
     ESP.deepSleep(sleeptime);
 }

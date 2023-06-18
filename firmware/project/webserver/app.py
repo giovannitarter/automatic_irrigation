@@ -3,6 +3,7 @@ from flask import Flask, request, make_response
 import schedule_pb2
 import time
 import os
+from datetime import datetime
 
 # create the Flask app
 app = Flask(__name__)
@@ -36,6 +37,17 @@ def parse_schedule():
     fd = open("schedule.csv", "r", encoding="utf-8")
     lines = fd.readlines()
     fd.close()
+
+    lines = [l.strip() for l in lines if l != ""]
+
+    if len(lines) > 4:
+        lines = lines[:4]
+        print("dropping lines above 4")
+
+    next_ev = (datetime.now().timestamp() + 30) // 60
+    next_ev = (next_ev + 1) * 60
+    nw = datetime.fromtimestamp(next_ev)
+    lines.append(f"{nw.hour}.{nw.minute}, 1")
 
     for l in lines:
     

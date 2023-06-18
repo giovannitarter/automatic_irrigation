@@ -26,17 +26,20 @@ uint8_t RTC::getDateTime(struct tm * dt)
 
     Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x00);
-    res = Wire.endTransmission(0);
+    res = Wire.endTransmission(1);
     //Serial.printf("res: %d\n", res);
        
     timeout = millis() + 100;
     Wire.requestFrom(RTC_ADDR, RTC_BYTES, 1);
 
     while(Wire.available() != RTC_BYTES && millis() < timeout);
+    //Serial.printf("available: %d\n", Wire.available());
 
     for(uint8_t i; i<RTC_BYTES; i++) {
         tmp[i] = Wire.read();
+        //Serial.printf("%01X ", tmp[i]);
     }
+    //Serial.println("");
 
     if (tmp[REG_STATUS] & 0b1000000) {
         res = 1;
@@ -89,22 +92,22 @@ uint8_t RTC::_getByte(uint8_t addr, uint8_t * val) {
     
     Wire.beginTransmission(RTC_ADDR);
     Wire.write(addr);
-    res = Wire.endTransmission(0);
+    res = Wire.endTransmission();
 
     if (res != 0) {
         return res;
     }
        
     timeout = millis() + 100;
-    Wire.requestFrom(RTC_ADDR, RTC_BYTES, 1);
+    Wire.requestFrom(RTC_ADDR, 1);
     
-    while(Wire.available() != 1 && millis() < timeout);
+    while(! Wire.available() && millis() < timeout);
 
     if (Wire.available()) {
         *val = Wire.read();
     }
     else {
-        res = 6;
+        res = 15;
     }
 
     return res;
@@ -115,10 +118,22 @@ uint8_t RTC::time_valid() {
     // returns 1 if time is still valid
     // checking osc stop bit
     
-    uint8_t res, val;
+    uint8_t res, val, sec;
     
     res = _getByte(REG_STATUS, &val);
     if (res != 0) {
+        Serial.printf("Cannot read byte %d\n", res);
+        return 0;
+    }
+    
+    res = _getByte(REG_SEC, &sec);
+    if (res != 0) {
+        Serial.printf("Cannot read byte %d\n", res);
+        return 0;
+    }
+
+    if (sec > 0x59) {
+        Serial.printf("Invalid sec byte %d\n", sec);
         return 0;
     }
 

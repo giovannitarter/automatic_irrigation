@@ -32,10 +32,10 @@ class RTC
         void init();
         uint8_t getDateTime(struct tm * dt);
         uint8_t setDateTime(struct tm * dt);
+        uint8_t time_valid();
 
     private:
         uint8_t _getByte(uint8_t addr, uint8_t * val);
-        uint8_t time_valid();
 
 };
 

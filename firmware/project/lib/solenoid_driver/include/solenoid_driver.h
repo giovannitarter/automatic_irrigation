@@ -1,7 +1,7 @@
 #ifndef __GVC_SOLENOID_DRIVER_H
 #define __GVC_SOLENOID_DRIVER_H
 
-#define CAP_CHARGE_TIME 1000
+#define CAP_CHARGE_TIME 700
 #define SOLENOID_PULSE_TIME 50
 
 class SolenoidDriver {
