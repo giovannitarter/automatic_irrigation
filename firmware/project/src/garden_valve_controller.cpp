@@ -13,6 +13,7 @@
 
 
 #include "garden_valve_controller.h"
+#include "helpers.h"
 #include "rtc.h"
 #include "weekly_calendar.h"
 #include "solenoid_driver.h"
@@ -25,6 +26,48 @@
 #define VAL_CHECK 0b0101010101
 
 #define ADDR_NEXTOP 0x03
+#define TZ "CET-1CEST,M3.5.0/2,M10.5.0/3"
+#define SOLENOID_DRV_NR 6
+
+
+SolenoidDriver slds[SOLENOID_DRV_NR] {
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_1,
+        PIN_H_BRIDGE_BIN_1,
+        PIN_H_BRIDGE_BIN_2
+        ),
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_1,
+        PIN_H_BRIDGE_AIN_1,
+        PIN_H_BRIDGE_AIN_2
+        ),
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_2,
+        PIN_H_BRIDGE_BIN_1,
+        PIN_H_BRIDGE_BIN_2
+        ),
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_2,
+        PIN_H_BRIDGE_AIN_1,
+        PIN_H_BRIDGE_AIN_2
+        ),
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_3,
+        PIN_H_BRIDGE_BIN_1,
+        PIN_H_BRIDGE_BIN_2
+        ),
+    SolenoidDriver(
+        PIN_STEP_UP_EN,
+        PIN_H_BRIDGE_EN_3,
+        PIN_H_BRIDGE_AIN_1,
+        PIN_H_BRIDGE_AIN_2
+        )
+    };
 
 
 //Globals
@@ -34,12 +77,9 @@ uint32_t display_on_time;
 uint8_t config, k_wtr_start, k_wtr_stop;
 esp_sleep_wakeup_cause_t wakeup_reason;
 
-#define TZ "CET-1CEST,M3.5.0/2,M10.5.0/3"
-
 
 RTC rtc = RTC();
 WeeklyCalendar wk = WeeklyCalendar();
-SolenoidDriver soldrv = SolenoidDriver();
 
 #define SCHEDULE_MAXLEN 256
 uint8_t buffer[SCHEDULE_MAXLEN];
@@ -85,36 +125,6 @@ void display_init() {
 }
 
 
-void print_wakeup_reason(esp_sleep_wakeup_cause_t wakeup_reason){
-  
-    switch(wakeup_reason){
-      
-      case ESP_SLEEP_WAKEUP_EXT0: 
-          Serial.println("Wakeup caused by external signal using RTC_IO"); 
-          break;
-      
-      case ESP_SLEEP_WAKEUP_EXT1: 
-          Serial.println("Wakeup caused by external signal using RTC_CNTL"); 
-          break;
-      
-      case ESP_SLEEP_WAKEUP_TIMER: 
-          Serial.println("Wakeup caused by timer"); 
-          break;
-      
-      case ESP_SLEEP_WAKEUP_TOUCHPAD: 
-          Serial.println("Wakeup caused by touchpad"); 
-          break;
-      
-      case ESP_SLEEP_WAKEUP_ULP: 
-          Serial.println("Wakeup caused by ULP program"); 
-          break;
-      
-      default: 
-          Serial.printf("Wakeup was not caused by deep sleep: %d\n",wakeup_reason); 
-          break;
-    }
-    Serial.printf("\r");
-}
 
 
 //Callback called when NTP acquires time
@@ -310,23 +320,6 @@ uint8_t decode_action(uint8_t msg_action) {
 }
 
 
-size_t read_schedule(char * buffer, size_t buflen) {
-
-    size_t res = 0;
-
-    Serial.println("read schedule");
-
-    LittleFS.begin(true);
-    if (LittleFS.exists("/schedule.txt")) {
-
-        File f = LittleFS.open("/schedule.txt", "r");
-        res = f.readBytes(buffer, buflen);
-        f.close();
-    }
-    LittleFS.end();
-
-    return res;
-}
 
 void callback(){
   //placeholder callback function
@@ -340,40 +333,23 @@ void setup() {
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
     //WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-     
-    pinMode(PIN_STEP_UP_EN, OUTPUT);
-    pinMode(PIN_H_BRIDGE_EN_1, OUTPUT);
-    pinMode(PIN_H_BRIDGE_EN_2, OUTPUT);
-    pinMode(PIN_H_BRIDGE_EN_2, OUTPUT);
-    pinMode(PIN_H_BRIDGE_AIN_1, OUTPUT);
-    pinMode(PIN_H_BRIDGE_AIN_2, OUTPUT);
-    pinMode(PIN_H_BRIDGE_BIN_1, OUTPUT);
-    pinMode(PIN_H_BRIDGE_BIN_2, OUTPUT);
+    
+    for (uint8_t i=0; i<SOLENOID_DRV_NR; i++) {
+        slds[i].begin();
+    }
 
-    pinMode(PIN_LED_ACT, OUTPUT);
-    pinMode(PIN_DISPLAY_EN, OUTPUT);
+    gpio_set_direction(PIN_DISPLAY_EN, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_DISPLAY_EN, 1);
+    gpio_hold_dis(PIN_DISPLAY_EN);
+
+    gpio_set_direction(PIN_LED_ACT, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_LED_ACT, 1);
+    gpio_hold_dis(PIN_LED_ACT);
     
-    digitalWrite(PIN_STEP_UP_EN, LOW);
-    digitalWrite(PIN_H_BRIDGE_EN_1, LOW);
-    digitalWrite(PIN_H_BRIDGE_EN_2, LOW);
-    digitalWrite(PIN_H_BRIDGE_EN_3, LOW);
-    digitalWrite(PIN_DISPLAY_EN, HIGH);
-    digitalWrite(PIN_STEP_UP_EN, LOW);
-    
-    gpio_hold_dis(GPIO_NUM_4);
-    gpio_hold_dis(GPIO_NUM_15);
-    gpio_hold_dis(GPIO_NUM_16);
-    gpio_hold_dis(GPIO_NUM_17);
-    gpio_hold_dis(GPIO_NUM_18);
-    gpio_hold_dis(GPIO_NUM_21);
-    gpio_hold_dis(GPIO_NUM_22);
     gpio_deep_sleep_hold_dis();    
-
-    rtc.init();
-    soldrv.init(PIN_STEP_UP_EN, PIN_H_BRIDGE_EN_1, PIN_H_BRIDGE_BIN_1, PIN_H_BRIDGE_BIN_2);
-
-    digitalWrite(PIN_LED_ACT, HIGH);
     
+    rtc.init();
+
     if (wakeup_reason == ESP_SLEEP_WAKEUP_TOUCHPAD) {
         
         use_display = 1;
@@ -423,7 +399,7 @@ void setup() {
     time_t test = time(nullptr);
     if (test < TIME_MIN) {
         Serial.println("ERROR, cannot sync\n");
-        soldrv.close_valve();
+        slds[0].close_valve();
     }
 
     //Serial.println("end setup\n");
@@ -497,12 +473,12 @@ void loop() {
 
             case OP_OPEN:
                 Serial.println("Time to open");
-                soldrv.open_valve();
+                slds[0].open_valve();
                 break;
 
             case OP_CLOSE:
                 Serial.println("Time to close");
-                soldrv.close_valve();
+                slds[0].close_valve();
                 break;
 
             default:
@@ -516,17 +492,17 @@ void loop() {
         delay(100);
     }
     
-    digitalWrite(PIN_STEP_UP_EN, LOW);
-    digitalWrite(PIN_DISPLAY_EN, HIGH);
-    digitalWrite(PIN_H_BRIDGE_EN_1, LOW);
-    digitalWrite(PIN_H_BRIDGE_EN_2, LOW);
-    digitalWrite(PIN_H_BRIDGE_EN_3, LOW);
     
-    gpio_hold_en(GPIO_NUM_4);
-    gpio_hold_en(GPIO_NUM_15);
-    gpio_hold_en(GPIO_NUM_16);
-    gpio_hold_en(GPIO_NUM_17);
-    gpio_hold_en(GPIO_NUM_18);
+    for (uint8_t i=0; i<SOLENOID_DRV_NR; i++) {
+        slds[i].end();
+    }
+    
+    gpio_set_level(PIN_DISPLAY_EN, 1);
+    gpio_hold_en(PIN_DISPLAY_EN);
+    
+    gpio_set_level(PIN_LED_ACT, 0);
+    gpio_hold_en(PIN_LED_ACT);
+
     gpio_deep_sleep_hold_en();
     
  

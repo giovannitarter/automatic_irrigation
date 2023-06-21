@@ -8,24 +8,27 @@ class SolenoidDriver {
 
     public:
         
-        SolenoidDriver();
-
-        void init(
-                uint8_t pin_step_up, 
-                uint8_t pin_stby,
-                uint8_t pin_h1,
-                uint8_t pin_h2
+        SolenoidDriver(
+                gpio_num_t pin_step_up, 
+                gpio_num_t pin_stby,
+                gpio_num_t pin_h1,
+                gpio_num_t pin_h2
                 );
+        
+        ~SolenoidDriver();
+
+        void begin();
+        void end();
 
         void open_valve();
         void close_valve();
 
     
     private:
-        uint8_t pin_su;
-        uint8_t pin_stby;
-        uint8_t pin_h1;
-        uint8_t pin_h2;
+        gpio_num_t pin_su;
+        gpio_num_t pin_stby;
+        gpio_num_t pin_h1;
+        gpio_num_t pin_h2;
 
 };
 
