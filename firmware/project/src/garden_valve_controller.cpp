@@ -5,8 +5,6 @@
 #include <ctime>
 #include <HTTPClient.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <esp_wifi.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -17,17 +15,23 @@
 #include "rtc.h"
 #include "weekly_calendar.h"
 #include "solenoid_driver.h"
+#include "display.h"
 
-#define TIME_MIN 1640995200
 
-#define ADDR_CNT 0x01
+//Globals
+const int VALVE_DELAY = BOOT_DELAY + CAP_CHARGE_TIME + SOLENOID_PULSE_TIME;
+int use_display;
+uint32_t display_on_time;
+uint8_t config, k_wtr_start, k_wtr_stop;
+esp_sleep_wakeup_cause_t wakeup_reason;
 
-#define ADDR_CHECK 0x02
-#define VAL_CHECK 0b0101010101
+uint8_t buffer[SCHEDULE_MAXLEN];
+size_t buflen;
 
-#define ADDR_NEXTOP 0x03
-#define TZ "CET-1CEST,M3.5.0/2,M10.5.0/3"
-#define SOLENOID_DRV_NR 6
+time_t now;
+struct tm tm_now;
+bool time_sync;
+bool need_sync;
 
 
 SolenoidDriver slds[SOLENOID_DRV_NR] {
@@ -70,61 +74,9 @@ SolenoidDriver slds[SOLENOID_DRV_NR] {
     };
 
 
-//Globals
-const int VALVE_DELAY = BOOT_DELAY + CAP_CHARGE_TIME + SOLENOID_PULSE_TIME;
-int use_display;
-uint32_t display_on_time;
-uint8_t config, k_wtr_start, k_wtr_stop;
-esp_sleep_wakeup_cause_t wakeup_reason;
-
-
 RTC rtc = RTC();
 WeeklyCalendar wk = WeeklyCalendar();
-
-#define SCHEDULE_MAXLEN 256
-uint8_t buffer[SCHEDULE_MAXLEN];
-size_t buflen;
-
-
-time_t now;
-struct tm tm_now;
-bool time_sync;
-bool need_sync;
-
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
-
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1, 10e5, 10e5);
-
-
-void display_init() {
-
-    pinMode(PIN_DISPLAY_EN, OUTPUT);
-    digitalWrite(PIN_DISPLAY_EN, LOW);
-    delay(1000);
-
-    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C, false, false)) { // Address 0x3D for 128x32
-        Serial.println(F("SSD1306 allocation failed"));
-        return;
-    }
-    display.clearDisplay();
-
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 10);
-    
-    char text[26];
-    now = time(nullptr);
-    wk.time_t_to_str(text, now, 0);
-
-    // Display static text
-    display.print(text);
-    display.display(); 
-}
-
-
+Display display = Display(PIN_DISPLAY_EN);
 
 
 //Callback called when NTP acquires time
@@ -251,14 +203,18 @@ void set_time_boot(int config) {
         Serial.println(WiFi.localIP());
 
         sntp_setoperatingmode(SNTP_OPMODE_POLL);
-        sntp_setservername(0, "pool.ntp.org");
+        sntp_setservername(0, NTPSERVER);
         sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
         sntp_set_time_sync_notification_cb(time_is_set);
         sntp_init();
 
         WiFiClient client;
         HTTPClient http;
-        http.begin(client, "http://192.168.2.25:25000/getschedule");
+        
+        char addr[50];
+        snprintf(addr, 50, "http://%s:%d/getschedule", ESPSERVER, ESPPORT);
+        
+        http.begin(client, addr);
         
         int httpCode = http.GET();
         if (httpCode == HTTP_CODE_OK) {
@@ -283,13 +239,17 @@ void set_time_boot(int config) {
             f.close();
             LittleFS.end();
         }
+        else {
+            Serial.println("Http error");
+        }
         http.end();
     }
     else {
-        time_sync = true;
         Serial.println("RTC is ok, setting time to system clock");
         system_set_time(rtc_time);
     }
+        
+    time_sync = true;
 }
 
 
@@ -338,10 +298,6 @@ void setup() {
         slds[i].begin();
     }
 
-    gpio_set_direction(PIN_DISPLAY_EN, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_DISPLAY_EN, 1);
-    gpio_hold_dis(PIN_DISPLAY_EN);
-
     gpio_set_direction(PIN_LED_ACT, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_LED_ACT, 1);
     gpio_hold_dis(PIN_LED_ACT);
@@ -374,10 +330,11 @@ void setup() {
         use_display = 1;
     }
 
+    delay(100);
+
     Serial.begin(115200);
     Serial.println("\n\nBOOT");
     print_wakeup_reason(wakeup_reason);
-
 
     Serial.printf("config: %d\n\r", config);
     Serial.printf("use_display: %d\n\r", use_display);
@@ -385,16 +342,13 @@ void setup() {
     Serial.printf("STAPSK: %s\n\r", STAPSK);
     
     uint32_t res;
-    res = Wire.begin(-1, -1, 10e5);
+    
+    res = Wire.begin(-1, -1, 100000UL);
     Serial.printf("Wire res: %d\n", res);
     
+    display.begin();
+
     set_time_boot(config);
-    
-    if (use_display) {
-        //Serial.println("Display init\n");
-        display_init();
-        //Serial.println("Display init end\n");
-    }
     
     time_t test = time(nullptr);
     if (test < TIME_MIN) {
@@ -403,12 +357,13 @@ void setup() {
     }
 
     //Serial.println("end setup\n");
-    
 }
+
 
 void loop() {
 
     if (need_sync) {
+        display.write("Sync in progress...", 0);
         if (time_sync == 0) {
             Serial.printf("Not synched yet, waiting %d\r", millis());
             delay(1000);
@@ -419,6 +374,13 @@ void loop() {
     esp_wifi_stop();
     
     digitalWrite(PIN_LED_ACT, LOW);
+    
+    if (use_display) {
+        char text[26];
+        now = time(nullptr);
+        wk.time_t_to_str(text, now, 0);
+        display.write(text, 0);
+    }
 
     now = time(nullptr);
     Serial.print("UTC time from system:  ");
@@ -444,19 +406,10 @@ void loop() {
 
     wk.init(now, buffer, buflen, EVT_TOLERANCE); 
     if (use_display) {
-    
-        display.setTextSize(1);
-        display.setTextColor(WHITE);
-        display.setCursor(0, 20);
-    
         char text[26];
         time_t next_evt_time = wk.get_next_event_time();
         wk.time_t_to_str(text, next_evt_time, 0);
-
-        // Display static text
-        display.print(text);
-        display.display(); 
-        display_on_time = millis();
+        display.write(text, 2);
     }
 
     while(sleeptime == 0) {
@@ -497,8 +450,7 @@ void loop() {
         slds[i].end();
     }
     
-    gpio_set_level(PIN_DISPLAY_EN, 1);
-    gpio_hold_en(PIN_DISPLAY_EN);
+    display.end();
     
     gpio_set_level(PIN_LED_ACT, 0);
     gpio_hold_en(PIN_LED_ACT);

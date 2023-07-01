@@ -78,6 +78,8 @@ void SolenoidDriver::close_valve() {
 
 
 void SolenoidDriver::open_valve() {
+    
+    gpio_set_level(pin_su, 1);
 
     //Serial.println("Charging...");
     delay(CAP_CHARGE_TIME);
