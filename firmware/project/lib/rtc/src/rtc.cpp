@@ -26,11 +26,11 @@ uint8_t RTC::getDateTime(struct tm * dt)
 
     Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x00);
-    res = Wire.endTransmission(1);
+    res = Wire.endTransmission(false);
     //Serial.printf("res: %d\n", res);
        
     timeout = millis() + 100;
-    Wire.requestFrom(RTC_ADDR, RTC_BYTES, 1);
+    Wire.requestFrom(RTC_ADDR, RTC_BYTES, true);
 
     while(Wire.available() != RTC_BYTES && millis() < timeout);
     //Serial.printf("available: %d\n", Wire.available());
@@ -73,13 +73,13 @@ uint8_t RTC::setDateTime(struct tm * dt)
     Wire.write(_dec2bcd(dt->tm_mday % 32 ));
     Wire.write(_dec2bcd(dt->tm_mon  % 13 ));
     Wire.write(_dec2bcd((dt->tm_year - 100) % 100));
-    res = Wire.endTransmission();
+    res = Wire.endTransmission(false);
     
     Wire.beginTransmission(RTC_ADDR);
     Wire.write(REG_CONTROL); 
     Wire.write(0x00);
     Wire.write(0x00);
-    res = Wire.endTransmission();
+    res = Wire.endTransmission(true);
 
     return res;
 }

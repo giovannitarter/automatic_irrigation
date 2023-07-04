@@ -4,10 +4,12 @@
 
 #ifndef STASSID
 #define STASSID ""
+#error STASSID not defined
 #endif
 
 #ifndef STAPSK
 #define STAPSK  ""
+#error STAPSK not defined
 #endif
 
 #ifndef ESPSERVER

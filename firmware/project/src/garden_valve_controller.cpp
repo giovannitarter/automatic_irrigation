@@ -25,6 +25,9 @@ uint32_t display_on_time;
 uint8_t config, k_wtr_start, k_wtr_stop;
 esp_sleep_wakeup_cause_t wakeup_reason;
 
+
+SemaphoreHandle_t sem;
+
 uint8_t buffer[SCHEDULE_MAXLEN];
 size_t buflen;
 
@@ -32,6 +35,7 @@ time_t now;
 struct tm tm_now;
 bool time_sync;
 bool need_sync;
+uint32_t conn_timeout;
 
 
 SolenoidDriver slds[SOLENOID_DRV_NR] {
@@ -183,73 +187,29 @@ void set_time_boot(int config) {
         wk.print_time_t("localtime:", now, 0);
         Serial.println();
 
+        conn_timeout = millis() + 10000;
+
         esp_wifi_start();
         WiFi.mode(WIFI_STA);
         WiFi.begin(STASSID, STAPSK);
 
-        timeout = millis() + 10000;
-        while (WiFi.status() != WL_CONNECTED) {
-          delay(500);
-          Serial.print(".");
-          if (millis() > timeout) {
-            Serial.println("Connection timeout");
-            break;
-          }
-        }
 
-        Serial.println("");
-        Serial.println("WiFi connected");
-        Serial.println("IP address: ");
-        Serial.println(WiFi.localIP());
+        //timeout = millis() + 10000;
+        //while (WiFi.status() != WL_CONNECTED) {
+        //  delay(500);
+        //  Serial.print(".");
+        //  if (millis() > timeout) {
+        //    Serial.println("Connection timeout");
+        //    break;
+        //  }
+        //}
 
-        sntp_setoperatingmode(SNTP_OPMODE_POLL);
-        sntp_setservername(0, NTPSERVER);
-        sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
-        sntp_set_time_sync_notification_cb(time_is_set);
-        sntp_init();
-
-        WiFiClient client;
-        HTTPClient http;
-        
-        char addr[50];
-        snprintf(addr, 50, "http://%s:%d/getschedule", ESPSERVER, ESPPORT);
-        
-        http.begin(client, addr);
-        
-        int httpCode = http.GET();
-        if (httpCode == HTTP_CODE_OK) {
-            //Serial.println(http.getSize());
-          
-            LittleFS.begin(true);
-            File f = LittleFS.open("/schedule.txt", "w");
-            uint8_t buff[20] = { 0 };
-            int len = http.getSize();
-
-            while (http.connected() && (len > 0 || len == -1)) {
-                // read up to 128 byte
-                int c = client.readBytes(buff, std::min((size_t)len, sizeof(buff)));
-
-                // write it to Serial
-                f.write(buff, c);
-
-                if (len > 0) { 
-                    len -= c; 
-                }
-            }
-            f.close();
-            LittleFS.end();
-        }
-        else {
-            Serial.println("Http error");
-        }
-        http.end();
     }
     else {
         Serial.println("RTC is ok, setting time to system clock");
         system_set_time(rtc_time);
     }
         
-    time_sync = true;
 }
 
 
@@ -283,6 +243,69 @@ uint8_t decode_action(uint8_t msg_action) {
 
 void callback(){
   //placeholder callback function
+}
+
+
+void download_config() {
+    WiFiClient client;
+    HTTPClient http;
+    
+    char addr[50];
+    snprintf(addr, 50, "http://%s:%d/getschedule", ESPSERVER, ESPPORT);
+    
+    http.begin(client, addr);
+    
+    int httpCode = http.GET();
+    if (httpCode == HTTP_CODE_OK) {
+        //Serial.println(http.getSize());
+      
+        LittleFS.begin(true);
+        File f = LittleFS.open("/schedule.txt", "w");
+        uint8_t buff[20] = { 0 };
+        int len = http.getSize();
+
+        while (http.connected() && (len > 0 || len == -1)) {
+            // read up to 128 byte
+            int c = client.readBytes(buff, std::min((size_t)len, sizeof(buff)));
+
+            // write it to Serial
+            f.write(buff, c);
+
+            if (len > 0) { 
+                len -= c; 
+            }
+        }
+        f.close();
+        LittleFS.end();
+    }
+    else {
+        Serial.println("Http error");
+    }
+    http.end();
+}
+
+
+void WiFiEvent(WiFiEvent_t event) {
+
+    Serial.printf("[WiFi-event] event: %d\n", event);
+
+    if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+    //if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+        
+        Serial.println("");
+        Serial.println("WiFi connected");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+
+        sntp_setoperatingmode(SNTP_OPMODE_POLL);
+        sntp_setservername(0, NTPSERVER);
+        sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
+        sntp_set_time_sync_notification_cb(time_is_set);
+        sntp_init();
+
+        download_config();
+        xSemaphoreGive(sem);
+    }
 }
 
 
@@ -330,6 +353,8 @@ void setup() {
         use_display = 1;
     }
 
+
+
     delay(100);
 
     Serial.begin(115200);
@@ -348,6 +373,13 @@ void setup() {
     
     display.begin();
 
+    sem = xSemaphoreCreateBinary();
+    if ( ! sem) {
+        Serial.println("Error creating mutex");
+    }
+    
+    WiFi.onEvent(WiFiEvent);
+
     set_time_boot(config);
     
     time_t test = time(nullptr);
@@ -361,16 +393,16 @@ void setup() {
 
 
 void loop() {
-
+     
     if (need_sync) {
-        display.write("Sync in progress...", 0);
-        if (time_sync == 0) {
-            Serial.printf("Not synched yet, waiting %d\r", millis());
-            delay(1000);
-            return;
-        }
+        Serial.printf("Need sync\n");
+        xSemaphoreTake(sem, portTICK_PERIOD_MS * 10000);
+        //if (xSemaphoreTake(sem, portTICK_PERIOD_MS * 10000) == pdFALSE) {
+            //Serial.printf("Not synched yet, waiting %d\r", millis());
+            //return;
+        //}
     }
-    
+
     esp_wifi_stop();
     
     digitalWrite(PIN_LED_ACT, LOW);
