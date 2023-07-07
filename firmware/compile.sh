@@ -10,7 +10,7 @@ WORKDIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
 
 
 BUILD_OPTS=""
-if [ "$1" = "clean" ];
+if [ "$1" = "clean" ] || [ "$1" = "clear" ];
 then
     BUILD_OPTS+="--no-cache"
     VOLUME_CLEAN="1"
@@ -21,7 +21,14 @@ pushd "$WORKDIR"
 
 pushd docker
 docker build $BUILD_OPTS -t $IMAGE_NAME .
+ERR_BUILD=$?
 popd
+
+if [ "$ERR_BUILD" != "0" ];
+then
+    echo "cannot build image"
+    exit 1
+fi
 
 
 if [ -n "$VOLUME_CLEAN" ];
@@ -55,7 +62,7 @@ docker run \
     -v"$WORKDIR/output":/output \
     -v"$WORKDIR/project":/root/project \
     \
-    -v "$VOLUME_NAME":/root/work \
+    -v ${VOLUME_NAME}:/root/work \
     -e PLATFORMIO_WORKSPACE_DIR="/root/work/.pio" \
     -e PLATFORMIO_CORE_DIR="/root/work/core" \
     \
