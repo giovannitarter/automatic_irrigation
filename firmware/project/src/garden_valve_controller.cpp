@@ -8,6 +8,7 @@
 #include <esp_wifi.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include <esp32fota.h>
 
 
 #include "garden_valve_controller.h"
@@ -26,14 +27,13 @@ uint8_t config, k_wtr_start, k_wtr_stop;
 esp_sleep_wakeup_cause_t wakeup_reason;
 
 
-SemaphoreHandle_t sem;
+SemaphoreHandle_t sem, time_sync;
 
 uint8_t buffer[SCHEDULE_MAXLEN];
 size_t buflen;
 
 time_t now;
 struct tm tm_now;
-bool time_sync;
 bool need_sync;
 uint32_t conn_timeout;
 
@@ -82,6 +82,12 @@ RTC rtc = RTC();
 WeeklyCalendar wk = WeeklyCalendar();
 Display display = Display(PIN_DISPLAY_EN);
 
+char tmp_url[40];
+String url("");
+char chip_id[13];
+esp32FOTA esp32FOTA("esp32-fota-http", CVERSION, false);
+
+
 
 //Callback called when NTP acquires time
 void time_is_set(struct timeval * tv) {
@@ -98,8 +104,7 @@ void time_is_set(struct timeval * tv) {
   Serial.print("Verify: ");
   Serial.println(now);
 
-  time_sync = 1;
-  need_sync = 0;
+  xSemaphoreGive(time_sync);
 }
 
 
@@ -178,8 +183,6 @@ void set_time_boot(int config) {
     Serial.println(need_sync);
 
     if (need_sync) {
-
-        time_sync = false;
 
         Serial.println("Error on RTC, sync from the internet");
 
@@ -296,12 +299,22 @@ void WiFiEvent(WiFiEvent_t event) {
         Serial.println("WiFi connected");
         Serial.println("IP address: ");
         Serial.println(WiFi.localIP());
+        
+        bool updatedNeeded = esp32FOTA.execHTTPcheck();
+        if (updatedNeeded)
+        {
+            Serial.println("FOTA Update avalable, updating!");
+            esp32FOTA.execOTA();
+            return;
+        }
 
         sntp_setoperatingmode(SNTP_OPMODE_POLL);
         sntp_setservername(0, NTPSERVER);
         sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
         sntp_set_time_sync_notification_cb(time_is_set);
         sntp_init();
+  
+        xSemaphoreTake(time_sync, portTICK_PERIOD_MS * 6000);
 
         download_config();
         xSemaphoreGive(sem);
@@ -353,6 +366,9 @@ void setup() {
         use_display = 1;
     }
 
+    snprintf(tmp_url, 40, "http://%s:%d/fota/manifest", ESPSERVER, ESPPORT);
+    url.concat(String(tmp_url));
+    esp32FOTA.setManifestURL(url);
 
 
     delay(100);
@@ -374,7 +390,13 @@ void setup() {
     display.begin();
 
     sem = xSemaphoreCreateBinary();
+    
     if ( ! sem) {
+        Serial.println("Error creating mutex");
+    }
+    
+    time_sync = xSemaphoreCreateBinary();
+    if ( ! time_sync) {
         Serial.println("Error creating mutex");
     }
     
@@ -423,6 +445,16 @@ void loop() {
     Serial.println((unsigned int)now);
 
     wk.print_time_t("localtime from system: ", now, 0);
+
+    
+    //try settinf an alarm
+    struct tm tmp;
+    gmtime_r(&now, &tmp);
+    tmp.tm_sec = 0;
+    tmp.tm_min += 1;
+    rtc.setAlarm(&tmp);
+    wk.print_time_tm("alarm set for: ", &tmp);
+
 
     uint32_t sleeptime;
     sleeptime = 30;

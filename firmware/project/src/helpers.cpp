@@ -53,3 +53,15 @@ size_t read_schedule(char * buffer, size_t buflen) {
 
     return res;
 }
+
+
+void get_chip_id(char * text_id, size_t len) {
+
+    uint64_t chipid;
+    chipid = ESP.getEfuseMac();
+    snprintf(text_id, len,
+        "%04X%08X",
+        (uint16_t)(chipid >> 32),
+        (uint32_t)chipid
+    );
+}

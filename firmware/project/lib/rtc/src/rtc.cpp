@@ -73,13 +73,62 @@ uint8_t RTC::setDateTime(struct tm * dt)
     Wire.write(_dec2bcd(dt->tm_mday % 32 ));
     Wire.write(_dec2bcd(dt->tm_mon  % 13 ));
     Wire.write(_dec2bcd((dt->tm_year - 100) % 100));
-    res = Wire.endTransmission(false);
+    res = Wire.endTransmission(true);
     
     Wire.beginTransmission(RTC_ADDR);
     Wire.write(REG_CONTROL); 
     Wire.write(0x00);
     Wire.write(0x00);
     res = Wire.endTransmission(true);
+
+    return res;
+}
+
+
+uint8_t RTC::setAlarm(struct tm * dt)
+{
+
+    uint8_t res = 0;
+
+    Wire.beginTransmission(RTC_ADDR);
+    Wire.write(0x07); 
+    Wire.write(0x00);
+    Wire.write(_dec2bcd(dt->tm_min  % 60 ));
+    Wire.write(_dec2bcd(dt->tm_hour % 24 ));
+    Wire.write(_dec2bcd(dt->tm_mday % 32 ));
+    res = Wire.endTransmission(true);
+    //Serial.printf("res write: %d\n", res);
+    
+    Wire.beginTransmission(RTC_ADDR);
+    Wire.write(REG_CONTROL); 
+    Wire.write(0b00000101);
+    Wire.write(0x00);
+    res = Wire.endTransmission(true);
+    
+    dump_memory(0x07, 9);
+    
+
+    return res;
+}
+
+
+uint8_t RTC::dump_memory(uint8_t addr, uint8_t size) {
+    
+    uint8_t tmp[size], res;
+    res = 0;
+
+    Wire.beginTransmission(RTC_ADDR);
+    Wire.write(addr); 
+    res = Wire.endTransmission(false);
+    
+    Wire.requestFrom(RTC_ADDR, size, true);
+    while(Wire.available() != size);
+    
+    for(uint8_t i; i<size; i++) {
+        tmp[i] = Wire.read();
+        Serial.printf("%02X ", tmp[i]);
+    }
+    Serial.println("");
 
     return res;
 }
