@@ -1,47 +1,55 @@
-"#","Reference","Qty","Value","Footprint","DNP"
-"1","BT1","1","Battery_Cell","Battery:BatteryHolder_Keystone_103_1x20mm",""
-"2","BT2","1","Battery","Battery:BatteryHolder_MPD_BH-18650-PC2",""
-"3","C1, C4","2","22uF","Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder",""
-"4","C2, C9, C16","3","10uF","Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder",""
-"5","C3, C8, C10, C11, C17, C20","6","0.1uF","Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder",""
-"6","C5, C15, C18","3","2.2uF","Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder",""
-"7","C6","1","1000uF","Capacitor_THT:CP_Radial_D10.0mm_P5.00mm",""
-"8","C7","1","0.1 uF","Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder",""
-"9","C12, C13, C14, C19","4","10uF","Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder",""
-"10","D1","1","LED","LED_THT:LED_D3.0mm_Clear",""
-"11","D2","1","1SS355VM","Diode_SMD:D_2010_5025Metric",""
-"12","D3","1","LED G","LED_THT:LED_D3.0mm_Clear",""
-"13","D4","1","LED R","LED_THT:LED_D3.0mm_Clear",""
-"14","D5","1","SS14","Diode_SMD:D_SMA_Handsoldering",""
-"15","J1, J2, J3, J5, J6, J7, J8","7","Conn_01x02","custom_footprints:Terminal_5mm",""
-"16","J4","1","USB_B_Micro","Connector_USB:USB_Micro-B_Molex-105017-0001",""
-"17","J9, J16, J17","3","Conn_01x01_Pin","Connector_Pin:Pin_D1.0mm_L10.0mm",""
-"18","J10, J11, J12, J13","4","Conn_01x01_Pin","MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom",""
-"19","J14","1","Conn_01x04_Pin","Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",""
-"20","L1","1","22uH","Inductor_SMD:L_Bourns-SRU1028_10.0x10.0mm",""
-"21","Q1, Q2","2","BC817","Package_TO_SOT_SMD:SOT-23",""
-"22","Q3, Q4","2","AO3401A","Package_TO_SOT_SMD:SOT-23",""
-"23","R1","1","330","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"24","R2","1","560K","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"25","R3","1","33K","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"26","R4, R5","2","100 Ohm","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"27","R6","1","1k","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"28","R7, R8, R9","3","1K","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"29","R10, R11, R12, R13, R14, R15","6","10K","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"30","R16, R17","2","220","Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",""
-"31","SW1, SW2","2","SW_Push","",""
-"32","TP1, TP2","2","TestPoint","TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm",""
-"33","TP3, TP5, TP6, TP7, TP8, TP9, TP10, TP11, TP12, TP13, TP14, TP15, TP16, TP17, TP18, TP19, TP20, TP21, TP22, TP23, TP24, TP25, TP26, TP30, TP31","25","TestPoint_Probe","TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm",""
-"34","TP4, TP27, TP28","3","TestPoint_2Pole","TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm",""
-"35","TP29","1","RTC Reset","TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm",""
-"36","U1","1","ESP32-WROOM-32D","RF_Module:ESP32-WROOM-32D",""
-"37","U2","1","HT7333","Package_TO_SOT_THT:TO-92L_Inline",""
-"38","U3","1","DS3231M","Package_SO:SOIC-16W_7.5x10.3mm_P1.27mm",""
-"39","U4","1","FS8205A","Package_SO:TSSOP-8_4.4x3mm_P0.65mm",""
-"40","U5","1","MT3608","Package_TO_SOT_SMD:SOT-23-6",""
-"41","U6, U11, U12","3","DRV8833PW","Package_SO:HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3x3mm",""
-"42","U7","1","DW01","Package_TO_SOT_SMD:SOT-23-6_Handsoldering",""
-"43","U8","1","TP4056","Package_SO:SOIC-8-1EP_3.9x4.9mm_P1.27mm_EP2.29x3mm",""
-"44","U9","1","CH340G","Package_SO:SOIC-16_3.9x9.9mm_P1.27mm",""
-"45","U10","1","AMS1117-3.3","Package_TO_SOT_SMD:SOT-223-3_TabPin2",""
-"46","Y2","1","Resonator","Crystal:Resonator_SMD_Murata_CSTxExxV-3Pin_3.0x1.1mm_HandSoldering",""
+#,Reference,Qty,Value,Footprint,DNP
+1,BT1,1,Battery,custom_footprints:BatteryHolder_Keystone_1042_1x18650,
+2,BT2,1,Battery_Cell,Battery:BatteryHolder_Keystone_103_1x20mm,
+3,"C1, C3, C9, C11",4,10uF,Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,
+4,"C2, C8, C10, C14, C17, C20",6,0.1uF,Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,
+5,"C4, C6",2,22uF,Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder,
+6,C5,1,100uF,Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder,
+7,C7,1,1000uF,Capacitor_THT:CP_Radial_D10.0mm_P5.00mm,
+8,C12,1,100nF,Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,
+9,"C13, C16, C19",3,10uF,Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder,
+10,"C15, C18, C21",3,2.2uF,Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,
+11,C22,1,10n,Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,
+12,D1,1,LED,LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder,
+13,D2,1,1SS355VM,Diode_SMD:D_2010_5025Metric,
+14,D3,1,LED G,LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder,
+15,D4,1,LED R,LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder,
+16,D5,1,SS14,Diode_SMD:D_SMA_Handsoldering,
+17,"D6, D7, D8, D9, D10, D11",6,1N5817,Diode_SMD:D_SMA_Handsoldering,
+18,J1,1,Conn_01x03_Pin,Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical,
+19,J2,1,Conn_01x06_Pin,Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical,
+20,"J3, J4, J5, J6",4,Conn_01x01_Pin,MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom,
+21,"J7, J8, J9",3,Conn_01x01_Pin,Connector_Pin:Pin_D1.0mm_L10.0mm,
+22,"J10, J12",2,Conn_01x07_Pin,Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical,
+23,J11,1,Conn_01x04_Pin,Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical,
+24,J13,1,USB_B_Micro,Connector_USB:USB_Micro-B_Molex-105017-0001,
+25,"J14, J15, J16, J17, J18, J19, J20",7,Conn_01x02,custom_footprints:Terminal_5mm,
+26,L1,1,22uH,Inductor_SMD:L_Bourns-SRU1028_10.0x10.0mm,
+27,"Q1, Q2, Q6",3,AO3401A,Package_TO_SOT_SMD:SOT-23,
+28,"Q3, Q4, Q5",3,BC817,Package_TO_SOT_SMD:SOT-23,
+29,"Q7, Q8, Q9",3,BC807,Package_TO_SOT_SMD:SOT-23,
+30,"R1, R3, R6, R7, R10, R20, R22, R29",8,100K,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+31,R2,1,330,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+32,R4,1,180K,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+33,"R5, R9, R16, R17, R21, R23, R24, R25, R26, R27, R28",11,10K,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+34,"R8, R18",2,100 Ohm,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+35,"R11, R12, R13",3,1K,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+36,"R14, R15",2,220,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+37,R19,1,1k,Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,
+38,"SW1, SW2, SW3, SW_FLASH1, SW_RST1",5,SW_Push,Button_Switch_THT:SW_PUSH_6mm_H4.3mm,
+39,"TP1, TP28, TP29, TP30, TP31",5,TestPoint_2Pole,TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm,
+40,"TP2, TP3, TP4, TP5, TP6, TP7, TP8, TP9, TP10, TP11, TP12, TP13, TP14, TP15, TP16, TP17, TP18, TP19, TP20, TP21, TP22, TP23, TP24, TP25, TP32, TP33, TP34, TP35, TP36, TP38, TP39",31,TestPoint_Probe,TestPoint:TestPoint_THTPad_D1.5mm_Drill0.7mm,
+41,"TP26, TP27",2,TestPoint,TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm,
+42,TP37,1,RTC Reset,TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm,
+43,TP40,1,Bat Exclusion,TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm,
+44,U1,1,ESP32-WROOM-32D,custom_footprints:ESP32-WROOM-32D,
+45,U2,1,HT7333,Package_TO_SOT_THT:TO-92L_Inline,
+46,U3,1,MT3608,Package_TO_SOT_SMD:SOT-23-6,
+47,U4,1,AMS1117-3.3,Package_TO_SOT_SMD:SOT-223-3_TabPin2,
+48,U5,1,TP4056,Package_SO:SOIC-8-1EP_3.9x4.9mm_P1.27mm_EP2.29x3mm,
+49,U6,1,CH340G,Package_SO:SOIC-16_3.9x9.9mm_P1.27mm,
+50,U7,1,FS8205A,Package_SO:TSSOP-8_4.4x3mm_P0.65mm,
+51,U8,1,DW01,Package_TO_SOT_SMD:SOT-23-6_Handsoldering,
+52,"U9, U10, U11",3,DRV8833PW,Package_SO:HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3x3mm,
+53,U12,1,DS3231M,Package_SO:SOIC-16W_7.5x10.3mm_P1.27mm,
+54,Y1,1,Resonator,Crystal:Resonator_SMD_Murata_CSTxExxV-3Pin_3.0x1.1mm_HandSoldering,
