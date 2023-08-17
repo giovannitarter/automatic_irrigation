@@ -24,13 +24,14 @@
 #define NTPSERVER  "pool.ntp.org"
 #endif
 
+#define PIN_LATCH GPIO_NUM_19
 
 #define PIN_DISPLAY_EN GPIO_NUM_15
 #define PIN_LED_ACT GPIO_NUM_23
 
 #define PIN_TOUCH_1 GPIO_NUM_13
-#define PIN_TOUCH_2 GPIO_NUM_12
-#define PIN_TOUCH_3 GPIO_NUM_14
+#define PIN_TOUCH_2 GPIO_NUM_35
+#define PIN_TOUCH_3 GPIO_NUM_34
 
 #define PIN_STEP_UP_EN GPIO_NUM_4
 
@@ -40,8 +41,16 @@
 
 #define PIN_H_BRIDGE_AIN_1 GPIO_NUM_25
 #define PIN_H_BRIDGE_AIN_2 GPIO_NUM_26
-#define PIN_H_BRIDGE_BIN_1 GPIO_NUM_32
-#define PIN_H_BRIDGE_BIN_2 GPIO_NUM_33
+#define PIN_H_BRIDGE_BIN_1 GPIO_NUM_33
+#define PIN_H_BRIDGE_BIN_2 GPIO_NUM_32
+
+
+#define PIN_SX_M0 GPIO_NUM_25
+#define PIN_SX_M1 GPIO_NUM_26
+#define PIN_SX_RX GPIO_NUM_33
+#define PIN_SX_TX GPIO_NUM_32
+#define PIN_SX_AUX GPIO_NUM_27
+
 
 #define SCHEDULE_MAXLEN 256
 
@@ -51,7 +60,6 @@
 #define SLEEP_MAX 60 * 60 * 2 //sec
 #define SLEEP_MIN 5  //sec
 
-#define MIN_DISPLAY 5000 //msec
 
 #define OP_NONE  0x00
 #define OP_SKIP  0x10
@@ -79,6 +87,7 @@ size_t read_schedule(char * buffer, size_t buflen);
 void rtc_set_time(time_t time_p);
 time_t rtc_get_time();
 
+void hibernate();
 
 
 #endif

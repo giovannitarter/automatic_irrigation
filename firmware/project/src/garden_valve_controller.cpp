@@ -19,6 +19,11 @@
 #include "display.h"
 
 
+#define mainAUTO_RELOAD_TIMER_PERIOD portTICK_PERIOD_MS * 1000
+
+TimerHandle_t xAutoReloadTimer;
+BaseType_t xTimer2Started;
+       
 //Globals
 const int VALVE_DELAY = BOOT_DELAY + CAP_CHARGE_TIME + SOLENOID_PULSE_TIME;
 int use_display;
@@ -189,9 +194,11 @@ void set_time_boot(int config) {
         now = time(nullptr);
         wk.print_time_t("localtime:", now, 0);
         Serial.println();
+        
+        //vTaskDelay(4000 * portTICK_PERIOD_MS);
+        //delay(4000);
 
         conn_timeout = millis() + 10000;
-
         esp_wifi_start();
         WiFi.mode(WIFI_STA);
         WiFi.begin(STASSID, STAPSK);
@@ -254,7 +261,8 @@ void download_config() {
     HTTPClient http;
     
     char addr[50];
-    snprintf(addr, 50, "http://%s:%d/getschedule", ESPSERVER, ESPPORT);
+    snprintf(addr, 50, "http://%s:%s/getschedule", ESPSERVER, ESPPORT);
+    Serial.printf("addr: %s\n", addr);
     
     http.begin(client, addr);
     
@@ -282,7 +290,7 @@ void download_config() {
         LittleFS.end();
     }
     else {
-        Serial.println("Http error");
+        Serial.printf("Http error: %d\n", httpCode);
     }
     http.end();
 }
@@ -320,15 +328,43 @@ void WiFiEvent(WiFiEvent_t event) {
         xSemaphoreGive(sem);
     }
 }
+        
+
+
+void prvAutoReloadTimerCallback(TimerHandle_t xTimer) {
+
+    //uint32_t ctime = time(nullptr);
+    Serial.printf("ctime: %d\n", millis());
+    if (use_display) {
+        char text[26];
+        now = time(nullptr);
+        wk.time_t_to_str(text, now, 0);
+        display.write(text, 0);
+    }
+}
+
+
+void hibernate() {
+
+    Serial.printf("\nhibernate\n"); 
+    Serial.flush();
+    Serial.end();
+    
+    gpio_set_level(PIN_LED_ACT, 0);
+ 
+    gpio_set_level(PIN_LATCH, 0);
+    
+    delay(300);
+}
 
 
 void setup() {
+    
     
     use_display = 0;
     need_sync = 0;
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
-    //WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
     
     for (uint8_t i=0; i<SOLENOID_DRV_NR; i++) {
         slds[i].begin();
@@ -338,33 +374,33 @@ void setup() {
     gpio_set_level(PIN_LED_ACT, 1);
     gpio_hold_dis(PIN_LED_ACT);
     
-    gpio_deep_sleep_hold_dis();    
+    gpio_set_direction(PIN_LATCH, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_LATCH, 1);
+    gpio_hold_dis(PIN_LATCH);
+    
+    gpio_reset_pin(PIN_TOUCH_1);
+    gpio_reset_pin(PIN_TOUCH_2);
+    gpio_reset_pin(PIN_TOUCH_3);
+    
+    gpio_pullup_dis(PIN_TOUCH_1);
+    gpio_pullup_dis(PIN_TOUCH_2);
+    gpio_pullup_dis(PIN_TOUCH_3);
+    
+    gpio_pulldown_en(PIN_TOUCH_1);
+    gpio_pulldown_en(PIN_TOUCH_2);
+    gpio_pulldown_en(PIN_TOUCH_3);
+    
+    gpio_set_direction(PIN_TOUCH_1, GPIO_MODE_INPUT);
+    gpio_set_direction(PIN_TOUCH_2, GPIO_MODE_INPUT);
+    gpio_set_direction(PIN_TOUCH_3, GPIO_MODE_INPUT);
+
+    gpio_hold_dis(PIN_TOUCH_1);
+    gpio_hold_dis(PIN_TOUCH_2);
+    gpio_hold_dis(PIN_TOUCH_3);
     
     rtc.init();
 
-    if (wakeup_reason == ESP_SLEEP_WAKEUP_TOUCHPAD) {
-        
-        use_display = 1;
-        
-        if (touchRead(T4) < TOUCH_THRESHOLD) {
-            config = 1;
-        }
-        
-        if (touchRead(T5) < TOUCH_THRESHOLD) {
-            k_wtr_start = 1;
-        }
-        
-        if (touchRead(T6) < TOUCH_THRESHOLD) {
-            k_wtr_start = 1;
-        }
-    }
-    else if (wakeup_reason == ESP_SLEEP_WAKEUP_UNDEFINED) {
-        use_display = 1; 
-    }
-    else {
-        config = digitalRead(PIN_TOUCH_1);
-        use_display = 1;
-    }
+    use_display = 1;
 
     snprintf(tmp_url, 40, "http://%s:%d/fota/manifest", ESPSERVER, ESPPORT);
     url.concat(String(tmp_url));
@@ -379,13 +415,23 @@ void setup() {
 
     Serial.printf("config: %d\n\r", config);
     Serial.printf("use_display: %d\n\r", use_display);
-    Serial.printf("STASSID: %s\n\r", STASSID);
-    Serial.printf("STAPSK: %s\n\r", STAPSK);
+    Serial.printf("STASSID : %s\n\r", STASSID);
+    Serial.printf("STAPSK  : %s\n\r", STAPSK);
+    Serial.printf("ESPSRV  : %s\n\r", ESPSERVER);
+    Serial.printf("ESPPORT : %s\n\r", ESPPORT);
     
+    //Serial.printf("touch 1: %d\n", aa);
+    Serial.printf("touch 1: %d\n", gpio_get_level(PIN_TOUCH_1));
+    Serial.printf("touch 2: %d\n", gpio_get_level(PIN_TOUCH_2));
+    Serial.printf("touch 3: %d\n", gpio_get_level(PIN_TOUCH_3));
+    
+    config      = gpio_get_level(PIN_TOUCH_1);
+    k_wtr_start = gpio_get_level(PIN_TOUCH_2);
+    k_wtr_stop  = gpio_get_level(PIN_TOUCH_3);
     uint32_t res;
     
     res = Wire.begin(-1, -1, 100000UL);
-    Serial.printf("Wire res: %d\n", res);
+    //Serial.printf("Wire res: %d\n", res);
     
     display.begin();
 
@@ -402,19 +448,68 @@ void setup() {
     
     WiFi.onEvent(WiFiEvent);
 
+    char text[20];
+    snprintf(text, 20, "config: %d", config);
+    display.write(text, 1);
+
     set_time_boot(config);
     
     time_t test = time(nullptr);
     if (test < TIME_MIN) {
         Serial.println("ERROR, cannot sync\n");
+        delay(2000);
         slds[0].close_valve();
     }
+
+    
+    xAutoReloadTimer = xTimerCreate(
+
+        /* Text name for the software timer - not used by FreeRTOS. */
+        "AutoReload",
+        
+        /* The software timer's period in ticks. */
+        //mainAUTO_RELOAD_TIMER_PERIOD,
+        portTICK_PERIOD_MS * 1000,
+        
+        /* Setting uxAutoRealod to pdTRUE creates an auto-reload timer. */
+        pdTRUE,
+        
+        /* This example does not use the timer id. */
+        0,
+
+        /* The callback function to be used by the software timer being created. */
+        prvAutoReloadTimerCallback 
+    );
+
+
+    /* Check the software timers were created. */
+    if ( xAutoReloadTimer != NULL ) {
+
+        /* Start the software timers, using a block time of 0 (no block time). 
+         * The scheduler has not been started yet so any block time specified 
+         * here would be ignored anyway. 
+        */
+        xTimer2Started = xTimerStart( xAutoReloadTimer, 0 );
+    }
+    
+    prvAutoReloadTimerCallback(NULL);
+
+    //scheduler is already started
 
     //Serial.println("end setup\n");
 }
 
 
 void loop() {
+
+
+    //Serial.println("Time to open");
+    //slds[0].open_valve();
+    //delay(1000);
+    //Serial.println("Time to close");
+    //slds[0].close_valve();
+
+    //return;
      
     if (need_sync) {
         Serial.printf("Need sync\n");
@@ -426,14 +521,18 @@ void loop() {
     }
 
     esp_wifi_stop();
-    
-    digitalWrite(PIN_LED_ACT, LOW);
-    
-    if (use_display) {
-        char text[26];
-        now = time(nullptr);
-        wk.time_t_to_str(text, now, 0);
-        display.write(text, 0);
+
+    if (k_wtr_start) {
+        Serial.println("Time to open");
+        display.write("Open           ", 1);
+        slds[0].open_valve();
+        //hibernate();
+    }
+    else if (k_wtr_stop) {
+        Serial.println("Time to close");
+        display.write("Close         ", 1);
+        slds[0].close_valve();
+        //hibernate();
     }
 
     now = time(nullptr);
@@ -446,36 +545,21 @@ void loop() {
 
     wk.print_time_t("localtime from system: ", now, 0);
 
-    
-    //try settinf an alarm
-    struct tm tmp;
-    gmtime_r(&now, &tmp);
-    tmp.tm_sec = 0;
-    tmp.tm_min += 1;
-    rtc.setAlarm(&tmp);
-    wk.print_time_tm("alarm set for: ", &tmp);
-
-
+   
     uint32_t sleeptime;
     sleeptime = 30;
     uint8_t op;
 
     Serial.println("");
 
-    sleeptime = 0;
     op = OP_NONE;
     buflen = SCHEDULE_MAXLEN;
     
     buflen = read_schedule((char *)buffer, buflen);
 
     wk.init(now, buffer, buflen, EVT_TOLERANCE); 
-    if (use_display) {
-        char text[26];
-        time_t next_evt_time = wk.get_next_event_time();
-        wk.time_t_to_str(text, next_evt_time, 0);
-        display.write(text, 2);
-    }
-
+    
+    sleeptime = 0;
     while(sleeptime == 0) {
 
         wk.next_event(now, &op, &sleeptime);
@@ -505,50 +589,27 @@ void loop() {
     }
     
     if (use_display) {
-        while(millis() < display_on_time + MIN_DISPLAY);
-        delay(100);
+        char text[26];
+        time_t next_evt_time = wk.get_next_event_time();
+        wk.time_t_to_str(text, next_evt_time, 0);
+        display.write(text, 2);
     }
-    
     
     for (uint8_t i=0; i<SOLENOID_DRV_NR; i++) {
         slds[i].end();
     }
     
     display.end();
-    
-    gpio_set_level(PIN_LED_ACT, 0);
-    gpio_hold_en(PIN_LED_ACT);
 
-    gpio_deep_sleep_hold_en();
-    
- 
-    time_t req_time = time(nullptr) - now;
-    if (req_time < 0) {
-        req_time = 0;
-    }   
-    Serial.printf("All action performed in %d sec\n\r", (uint32_t) req_time);
+    now = time(nullptr);
+    now = ((now + 60) / 60) * 60;
 
-    if (sleeptime > SLEEP_MAX) {
-        sleeptime = SLEEP_MAX;
-    }
-    else if (sleeptime < SLEEP_MIN) {
-        sleeptime = SLEEP_MIN;
-    }
-    else {
-        sleeptime -= req_time;
-        sleeptime -= BOOT_DELAY;
-    }
+    struct tm tmp;
+    gmtime_r(&now, &tmp);
+    rtc.setAlarm(&tmp);
+    wk.print_time_tm("alarm set for: ", &tmp);
 
-    Serial.printf("Will sleep for: %d\n\r", sleeptime);
-    sleeptime = sleeptime * 1e6;
-
-    esp_sleep_enable_touchpad_wakeup();
-    
-    touchAttachInterrupt(T4, callback, TOUCH_THRESHOLD);
-    touchAttachInterrupt(T5, callback, TOUCH_THRESHOLD);
-    touchAttachInterrupt(T6, callback, TOUCH_THRESHOLD);
-
-    ESP.deepSleep(sleeptime);
+    hibernate();
 }
 
 
