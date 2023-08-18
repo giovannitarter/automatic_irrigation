@@ -59,7 +59,8 @@ void Display::begin() {
  void Display::write(char * text, uint8_t line) {
 
      TextMessage tx;
-     memcpy(tx.text, text, 20);
+     snprintf((char *)tx.text, 20, "%-20s", text);
+     //memcpy(tx.text, text, 20);
      tx.line = line;
 
      xQueueSend(disp_queue, &tx, (TickType_t)0);

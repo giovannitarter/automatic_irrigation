@@ -190,6 +190,7 @@ void set_time_boot(int config) {
     if (need_sync) {
 
         Serial.println("Error on RTC, sync from the internet");
+        display.write("Sync in progress", 1);
 
         now = time(nullptr);
         wk.print_time_t("localtime:", now, 0);
@@ -503,14 +504,6 @@ void setup() {
 void loop() {
 
 
-    //Serial.println("Time to open");
-    //slds[0].open_valve();
-    //delay(1000);
-    //Serial.println("Time to close");
-    //slds[0].close_valve();
-
-    //return;
-     
     if (need_sync) {
         Serial.printf("Need sync\n");
         xSemaphoreTake(sem, portTICK_PERIOD_MS * 10000);
